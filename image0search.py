@@ -11,6 +11,44 @@ import cookielib
 from google.appengine.ext import blobstore
 from google.appengine.ext.webapp import blobstore_handlers
 from google.appengine.api import images
+from google.appengine.api import urlfetch
+
+
+def google_search(url):
+    form_fields = {
+                   "image_url": url
+    }
+    form_data = urllib.urlencode(form_fields)
+    result = urlfetch.fetch(url="http://www.google.com/imghp?sbi=1",
+    payload=form_data,
+    method=urlfetch.POST,
+    headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    return google_parse(result)
+
+def google_search3(url):
+    url='http://www.google.com/searchbyimage'+'?image_url='+url
+    req = urllib2.Request(url)
+    req.add_header("Accept-Encoding", "gzip,deflate,sdch")
+    req.add_header("Cache-Control", "max-age=0")
+    req.add_header("Connection", "keep-alive")
+    req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.116 Safari/537.36")
+    req.add_header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+    #req.add_header("Accept-Language", "en-us,en;q=0.5")
+    #req.add_header("Referer", "http://www.google.com")
+    try:
+        resp = urllib2.urlopen(req)
+    except urllib2.HTTPError, e:
+        return e.fp.read()
+    return google_parse(resp)
+
+def google_parse(p):
+    res=""
+    p1=p.read().replace('\r','').replace('\n','').replace('\t',' ')
+    #rex=re.compile('<table class=ts>[\s\S]{0,240}?imgurl=(.*?)&amp;.*?imgrefurl=(.*?)&amp;.*?<h3 class="r"><a .*?href=(.*?)>(.*?)</a>.*?')    
+    rex=re.compile('<div class="rc" data-hveid=".*?"><h3 class="r"><a href="(.*?)" onmousedown')
+    for m in rex.finditer(p1):
+        res=res+m.group(1)+'\n'
+    return res
 
 def google_search2(req):
     url='https://ajax.googleapis.com/ajax/services/search/images'+'?v=1.0&rsz=8&q='+req
@@ -49,7 +87,7 @@ class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
         #self.send_blob(blob_info)
         url= images.get_serving_url(blob_info.key())
         self.response.out.write("<html><body><p>"+url+"</p>")
-        self.response.out.write(google_search2(url))
+        self.response.out.write(google_search(url))
         self.response.out.write("</p></body></html>")
 
 application = webapp2.WSGIApplication([('/', MainHandler),
